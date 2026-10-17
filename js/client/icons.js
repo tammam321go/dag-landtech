@@ -23,6 +23,11 @@
     key: s('<circle cx="8" cy="15" r="4"/><path d="M11 12l8-8M16 7l3 3M14 9l2 2"/>'),
     reset: s('<path d="M4 4v6h6"/><path d="M4.5 15a8 8 0 1 0 2-8.5L4 10"/>'),
     info: s('<circle cx="12" cy="12" r="8.5"/><path d="M12 11v5M12 8v.01"/>', 2.2),
+    map: s('<path d="M4 6.5 9.5 4l5 2.5L20 4v13.5L14.5 20l-5-2.5L4 20z"/><path d="M9.5 4v13.5M14.5 6.5V20"/><circle cx="12" cy="11" r="1.6"/>'),
+    bank: s('<path d="M3 9.5 12 4l9 5.5M5 10v7M9.5 10v7M14.5 10v7M19 10v7M3 20h18"/>'),
+    doc: s('<path d="M7 3h7l4 4v14H7z"/><path d="M14 3v4h4M10 12h5M10 16h5"/>'),
+    play: s('<path d="M8 5.5v13l10.5-6.5z"/>', 2.2),
+    stop: s('<rect x="7" y="7" width="10" height="10" rx="1.5"/>', 2.2),
     phone: s('<rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/>'),
   };
 })(window);

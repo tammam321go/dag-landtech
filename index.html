@@ -6,6 +6,7 @@
   <title>Dag: Land Clearance Demo</title>
   <meta name="description" content="Dag is a clearance gate in front of land registration in Bangladesh. Live demo with a judge's guide. LandTech 2026, team Silicon Knights.">
   <meta name="theme-color" content="#0f3d2e">
+  <meta name="dag-api" content="browser">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='11' fill='%230f3d2e'/%3E%3Cpath d='M9 11.5 19 9.5 20.5 19 10.5 21Z' fill='%233fa676'/%3E%3Cpath d='M19 9.5 31 11 30 20.5 20.5 19M10.5 21 12 31 22 30 20.5 19M22 30 30.5 29 30 20.5' fill='none' stroke='%239fd3b8' stroke-width='1.6' stroke-linejoin='round'/%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -31,10 +32,12 @@
           <div class="view" id="view"></div>
         </div>
       </div>
-      <p class="device-cap">Live prototype &middot; fictional records &middot; runs in your browser</p>
+      <p class="device-cap" id="device-cap">Live prototype &middot; fictional records</p>
     </section>
     <aside class="guide" id="guide" aria-label="Demo guide"></aside>
   </div>
+  <div class="cert-wrap" id="cert" role="dialog" aria-modal="true" aria-label="Clearance certificate" hidden></div>
+  <div class="caption" id="caption" role="status" aria-live="polite"></div>
 
   <!-- third-party, vendored (see README) -->
   <script src="js/vendor/nacl-fast.min.js"></script>
