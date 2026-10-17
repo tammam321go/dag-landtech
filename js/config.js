@@ -1,7 +1,7 @@
 /*
  * Where the Dag API lives. This is the only file to edit when deploying.
  *
- *   api: 'auto'      Run the backend inside the browser, unless this page was
+ *   api: 'https://dag-landtech-api.onrender.com'      Run the backend inside the browser, unless this page was
  *                    served by server/http.js (then it uses that server).
  *   api: 'browser'   Always run the backend inside the browser.
  *   api: 'https://dag-landtech-api.onrender.com'
@@ -12,5 +12,5 @@
  * A visitor can override it for one visit with ?api=browser or ?api=<url>.
  */
 window.DAG_CONFIG = {
-  api: 'auto',
+  api: 'https://dag-landtech-api.onrender.com',
 };
