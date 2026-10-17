@@ -143,7 +143,6 @@ to its own server.
 `vercel.json` adds the security headers (a Content Security Policy that only
 lets the page talk to itself and to `*.onrender.com`), keeps `js/config.js`
 uncached so a URL change shows up at once, and caches the fonts for a year.
-`.vercelignore` keeps the server and tests out of the static site.
 
 With the Vercel CLI instead:
 

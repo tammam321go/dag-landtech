@@ -241,7 +241,7 @@ Every record is invented, as the rules require. Nothing was scraped or downloade
 | `server/http.js` | Node HTTP server, workspaces, CORS, limits |
 | `tests/gate.test.js` | 34 tests, including real HTTP |
 | `scripts/smoke.mjs` | checks a live deployment |
-| `render.yaml`, `vercel.json`, `.vercelignore`, `Dockerfile` | hosting |
+| `render.yaml`, `vercel.json`, `Dockerfile` | hosting |
 | `js/vendor/` | TweetNaCl 1.0.3 and qrcode-generator 1.4.4, unmodified |
 | `fonts/` | IBM Plex Sans, IBM Plex Mono, Noto Sans Bengali (SIL Open Font License, `fonts/OFL.txt`) |
 
