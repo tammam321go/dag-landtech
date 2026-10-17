@@ -1,35 +1,38 @@
 /*
  * Mock of the Bangladesh Bank CIB side: the encumbrance oracle.
  * It answers one question, "is there a live charge on this dag?", and signs
- * the answer with its own key. Loan amount, loan reference and the borrower's
- * other facilities never leave this function.
+ * the answer with its own key. The loan amount, the loan reference and the
+ * borrower's other facilities never leave this function.
  */
 (function (root) {
   'use strict';
   const Dag = (root.Dag = root.Dag || {});
 
-  function query(state, { dag, askedBy }) {
+  function query(st, { dag, askedBy, askedByBn }) {
     const C = Dag.crypto;
-    const charge = state.bank.charges.find((c) => c.dag === dag && c.status === 'live') || null;
+    const charge = st.bank.charges.find((c) => c.dag === dag && c.status === 'live') || null;
     const reply = {
-      mouza: `${state.mouza.name}, JL ${state.mouza.jl}`,
+      mouza: `${st.mouza.name}, JL ${st.mouza.jl}`,
       dag,
       charge: !!charge,
       since: charge ? charge.since : null,
       lender: charge ? charge.lender : null,
+      lenderBn: charge ? charge.lenderBn : null,
       askedBy,
       at: new Date().toISOString(),
       nonce: C.randomHex(6),
     };
     const signature = C.sign(reply, C.keys.oracle());
-    state.oracleLog.push({
+    st.oracleLog.push({
       at: reply.at,
       dag,
       askedBy,
+      askedByBn: askedByBn || askedBy,
       answer: reply.charge,
-      disclosed: charge ? ['charge: yes', 'since', 'lender'] : ['charge: no'],
-      withheld: charge ? ['loan amount', 'loan reference', 'borrower and other loans'] : ['nothing held on this dag'],
+      disclosed: charge ? ['charge_yes', 'since', 'lender'] : ['charge_no'],
+      withheld: charge ? ['amount', 'loanRef', 'borrower'] : ['nothing'],
     });
+    if (st.oracleLog.length > 200) st.oracleLog.splice(0, st.oracleLog.length - 200);
     return { reply, signature, keyId: C.fingerprint(C.keys.oracle().publicKey) };
   }
 
