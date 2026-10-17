@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Dag concept note, Silicon Knights, LandTech 2026</title>
+<!-- Source of docs/Dag_concept_note_SiliconKnights.pdf. Rebuild with: node docs/note/build.mjs -->
+<style>
+@font-face { font-family: 'Plex'; src: url(../../fonts/ibm-plex-sans-latin-400-normal.woff2); font-weight: 400; }
+@font-face { font-family: 'Plex'; src: url(../../fonts/ibm-plex-sans-latin-500-normal.woff2); font-weight: 500; }
+@font-face { font-family: 'Plex'; src: url(../../fonts/ibm-plex-sans-latin-600-normal.woff2); font-weight: 600; }
+@font-face { font-family: 'Plex'; src: url(../../fonts/ibm-plex-sans-latin-700-normal.woff2); font-weight: 700; }
+@font-face { font-family: 'Noto Bangla'; src: url(../../fonts/noto-sans-bengali-bengali-400-normal.woff2); font-weight: 400; unicode-range: U+0980-09FF, U+200C-200D; }
+@font-face { font-family: 'Noto Bangla'; src: url(../../fonts/noto-sans-bengali-bengali-600-normal.woff2); font-weight: 600; unicode-range: U+0980-09FF, U+200C-200D; }
+@page { size: A4; margin: 12mm 13mm 13mm; }
+:root { --f: #0E3B2E; --f2: #17543F; --leaf: #3E9A6E; --mint: #E8F1EB; --ink: #13221C; --ink2: #47554F; --ink3: #6E7C75; --line: #D8E0D9; --seal: #5A3E8E; --sealbg: #EFEAF7; --red: #A32D2D; --redbg: #FBE9E7; --warn: #96600E; --warnbg: #FBF0DC; --pass: #1E6B44; --passbg: #E5F2EA; }
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { font-family: 'Plex', 'Noto Bangla', sans-serif; font-size: 8.75pt; line-height: 1.42; color: var(--ink); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.page { page-break-after: always; position: relative; height: 271mm; padding-bottom: 8mm; overflow: hidden; }
+.page:last-child { page-break-after: auto; }
+.foot { position: absolute; bottom: 0; left: 0; right: 0; font-size: 7pt; color: var(--ink3); border-top: 1px solid var(--line); padding-top: 3px; display: flex; justify-content: space-between; }
+h1 { font-size: 19pt; margin: 0; letter-spacing: -.3px; color: var(--f); }
+h1 .bn { font-family: 'Noto Bangla'; font-weight: 600; color: var(--f2); }
+.sub { font-size: 10.5pt; color: var(--ink2); margin: 2px 0 9px; }
+.meta { display: grid; grid-template-columns: auto 1fr auto 1fr; gap: 3px 12px; font-size: 8.2pt; background: var(--mint); border-radius: 6px; padding: 7px 10px; margin-bottom: 4px; }
+.meta b { color: var(--f); font-weight: 600; }
+h2 { font-size: 10.5pt; color: var(--f); margin: 11px 0 4px; padding-bottom: 2px; border-bottom: 1.5px solid var(--f); }
+h3 { font-size: 9pt; margin: 7px 0 2px; color: var(--f2); }
+p { margin: 0 0 5px; text-align: justify; }
+.cite { color: var(--f2); font-size: 7.5pt; vertical-align: 1px; }
+.pull { border-left: 3px solid var(--seal); background: var(--sealbg); padding: 6px 10px; margin: 6px 0; font-weight: 500; color: #3b2a5e; }
+.checks { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; margin-top: 3px; }
+.checks p { margin-bottom: 3px; }
+.checks b { color: var(--f); }
+.fig { border: 1px solid var(--line); border-radius: 8px; padding: 8px; margin: 6px 0 2px; background: #FBFCFA; }
+.cap { text-align: center; font-size: 7.5pt; color: var(--ink3); font-style: italic; margin: 2px 0 6px; }
+.layer { font-size: 6.8pt; font-weight: 700; color: var(--ink3); margin: 2px 0 3px; letter-spacing: .4px; }
+.row { display: grid; gap: 6px; margin-bottom: 5px; }
+.r4 { grid-template-columns: repeat(4, 1fr); }
+.r5 { grid-template-columns: repeat(5, 1fr); }
+.r6 { grid-template-columns: repeat(6, 1fr); }
+.bx { border: 1px solid #9DB6A8; background: #fff; border-radius: 5px; padding: 4px 5px; text-align: center; font-size: 7.2pt; line-height: 1.3; }
+.bx b { display: block; font-size: 7.6pt; color: var(--f); }
+.bx small { color: var(--ink3); font-size: 6.6pt; display: block; }
+.bx.dash { border-style: dashed; background: #FFFBF3; border-color: #D9B77A; }
+.bx.new { border-color: var(--seal); background: var(--sealbg); }
+.bx.new b { color: var(--seal); }
+.bar { background: var(--f); color: #fff; text-align: center; border-radius: 5px; padding: 5px; font-size: 7.6pt; font-weight: 600; margin-bottom: 6px; }
+.bar.light { background: var(--mint); color: var(--f); border: 1px solid #B9D3C3; font-weight: 500; }
+.note { font-size: 6.9pt; color: var(--ink2); text-align: center; background: #FFFBF3; border: 1px dashed #D9B77A; border-radius: 5px; padding: 3px; }
+/* decision flow */
+.flow { display: flex; flex-direction: column; align-items: center; gap: 0; }
+.fb { border: 1px solid #9DB6A8; background: #fff; border-radius: 6px; padding: 4px 12px; font-size: 7.5pt; text-align: center; }
+.fb.dark { background: var(--f); color: #fff; border-color: var(--f); font-weight: 600; }
+.arrow { width: 1px; height: 9px; background: #7C9488; position: relative; }
+.arrow::after { content: ''; position: absolute; bottom: -1px; left: -3px; border: 3.5px solid transparent; border-top: 4px solid #7C9488; border-bottom: 0; }
+.allchecks { border: 1px solid #9DB6A8; border-radius: 7px; padding: 5px 7px; width: 100%; background: #fff; }
+.allchecks .t { text-align: center; font-size: 7.2pt; font-weight: 700; color: var(--f); margin-bottom: 4px; }
+.chips { display: flex; gap: 4px; justify-content: center; flex-wrap: wrap; margin-bottom: 4px; }
+.chip { border: 1px solid #B9D3C3; background: var(--mint); border-radius: 4px; font-size: 6.9pt; padding: 1px 6px; }
+.chip.new { border-color: var(--seal); background: var(--sealbg); color: var(--seal); font-weight: 600; }
+.outs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px; width: 100%; }
+.out { border-radius: 6px; padding: 4px 6px; font-size: 6.9pt; text-align: center; border: 1px solid; }
+.out b { display: block; font-size: 8pt; letter-spacing: .5px; }
+.o-b { background: var(--redbg); border-color: #EDC2BD; color: var(--red); }
+.o-h { background: var(--sealbg); border-color: #CDBEE6; color: var(--seal); }
+.o-w { background: var(--warnbg); border-color: #EBD1A2; color: var(--warn); }
+.o-p { background: var(--passbg); border-color: #B5DBC4; color: var(--pass); }
+.out span { color: var(--ink2); }
+/* sequence */
+.seq { position: relative; }
+.actors { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; margin-bottom: 3px; }
+.actor { background: var(--f); color: #fff; text-align: center; font-size: 7pt; font-weight: 600; border-radius: 4px; padding: 3px 2px; }
+.actor.own { background: var(--seal); }
+.lanes { position: relative; display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+.lane { border-left: 1px dashed #B5C4BB; margin-left: 50%; height: 100%; }
+.msgs { position: absolute; inset: 0; display: grid; grid-template-columns: repeat(12, 1fr); grid-auto-rows: 15px; column-gap: 0; }
+.m { position: relative; font-size: 6.7pt; color: var(--ink); white-space: nowrap; border-bottom: 1.2px solid #4E6B5D; height: 12px; line-height: 10px; padding: 0 3px; }
+.m.r::after, .m.l::before { content: ''; position: absolute; bottom: -4px; border: 3.5px solid transparent; }
+.m.r::after { right: -1px; border-left: 5px solid #4E6B5D; border-right: 0; }
+.m.l { text-align: right; }
+.m.l::before { left: -1px; border-right: 5px solid #4E6B5D; border-left: 0; }
+.m.dash { border-bottom-style: dashed; }
+.m.sms { border-bottom-color: var(--seal); color: var(--seal); }
+.m.sms.r::after { border-left-color: var(--seal); }
+.attack { font-size: 6.9pt; font-weight: 700; color: var(--red); border-top: 1.5px dashed var(--red); padding-top: 2px; }
+.blockbox { background: var(--redbg); border: 1px solid #EDC2BD; color: var(--red); font-size: 6.9pt; border-radius: 4px; padding: 3px 6px; line-height: 1.3; white-space: normal; text-align: center; }
+/* pipeline */
+.pipe { display: grid; grid-template-columns: 1fr 10px 1fr 10px 1fr 10px 1fr 10px 1fr 10px 1fr; align-items: center; }
+.pipe .ar { text-align: center; color: #7C9488; font-size: 8pt; }
+.bx.done { background: var(--f); border-color: var(--f); }
+.bx.done b, .bx.done small { color: #fff; }
+table.team { width: 100%; border-collapse: collapse; font-size: 8.2pt; margin: 3px 0 5px; }
+table.team td { padding: 2px 6px; border-bottom: 1px solid var(--line); }
+table.team td:first-child { color: var(--ink3); width: 26%; }
+ol.refs { margin: 3px 0 0; padding-left: 17px; font-size: 6.6pt; line-height: 1.3; color: var(--ink2); }
+ol.refs li { margin-bottom: 1px; }
+.small { font-size: 7.6pt; color: var(--ink2); }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
+</style>
+</head>
+<body>
+
+<!-- ============ PAGE 1 ============ -->
+<section class="page">
+  <h1>Dag <span class="bn">দাগ</span>: a clearance gate for land registration</h1>
+  <div class="sub">Stopping a bad deed before it is signed, instead of arguing about it for nine years.</div>
+  <div class="meta">
+    <b>Team</b><span>Silicon Knights</span><b>Event</b><span>LandTech 2026, Round 1</span>
+    <b>Problem</b><span>P4, Smart e-Mutation and Registry, with two additions under P6</span><b>Date</b><span>17 October 2026</span>
+  </div>
+
+  <h2>1. The problem we picked</h2>
+  <p>In Bangladesh a deed is registered at the sub-registry office under the Ministry of Law. The record of ownership is corrected at the AC (Land) office under the Ministry of Land. These are two ministries, two databases and two queues, and a deed registered in one of them does not necessarily reach the other <span class="cite">[1]</span>. The buyer walks out holding paper that the state does not yet recognise.</p>
+  <p>The government has already attacked half of this. e-Mutation cut the namjari process from about 60 days to 28 and from three or four office visits to one <span class="cite">[2]</span>. A registration-mutation interconnection was inaugurated in March 2023 and runs in a set of pilot upazilas <span class="cite">[3]</span>. On 1 January 2026 the Registration (Amendment) Ordinance amended the 1908 Act and opened the legal route for e-registration through government-approved software <span class="cite">[4]</span>.</p>
+  <p>So the pipe between the two offices is being built. What nobody has built is the gate. Nothing today checks, at the counter, whether the deed about to be registered should be registered at all. That is the gap we are filling.</p>
+
+  <h2>2. Why it matters here</h2>
+  <p>Roughly two million land cases sit with the judiciary, more than 70 percent of all litigation in the country <span class="cite">[5]</span>. The Senior Secretary of the Ministry of Land has put the figure near 80 percent <span class="cite">[6]</span>. One household in seven is in a land dispute, the average case runs about eight years, and some have run forty <span class="cite">[5]</span>.</p>
+  <p>Most of these cases are not legal puzzles. They are bad entries that nobody checked. A single Prothom Alo investigation from Faridpur shows the whole chain in one story: after a landowner died, people claiming to be his heirs were brought in from across the border on forged certificates, the land was registered in their name, and almost immediately afterwards a third party used the same land as collateral for a bank loan <span class="cite">[7]</span>.</p>
+  <div class="pull">That one case is the argument for both of our additions. An alert to the real family would have exposed the registration within minutes. A charge check at the counter would have exposed the loan.</div>
+
+  <h2>3. What we are building</h2>
+  <p>Dag is a verification service that sits in front of registration. The sub-registrar enters the mouza, the dag number, the seller, the buyer and the share being sold. Dag runs a fixed set of checks and stamps the request <b>PASS</b>, <b>WARN</b>, <b>HELD</b> or <b>BLOCKED</b>, with every reason and its evidence. A pass, or a warning the officer accepts with a written note, produces a signed clearance with a QR code that anyone can scan to confirm it is real, on the phone itself.</p>
+  <p>When the deed is executed, Dag runs the checks once more and voids the clearance if anything changed in between. Then it emits one event. That event opens the namjari case at the AC (Land) office with no application from the citizen, writes the transferred share into the ledger, and texts the owner.</p>
+  <p>The name comes from the dag number, because the plot, not the person and not the document, is the only thing every office in the chain agrees on.</p>
+  <h3>The seven base checks</h3>
+  <div class="checks">
+    <div>
+      <p><b>C1 Seller in record.</b> Seller NID matches a current khatian holder; a different name on the deed raises a warning.</p>
+      <p><b>C2 Area ledger.</b> Shares already transferred out of the dag must not exceed the recorded area. This is what catches a 12-decimal plot being sold three times at 10 decimals.</p>
+      <p><b>C3 Pending deed lock.</b> A deed in flight locks the dag, so two offices cannot register the same plot in the same week.</p>
+      <p><b>C4 Khajna and mutation.</b> Tax paid, and the seller holds a mutation khatian in his own name.</p>
+    </div>
+    <div>
+      <p><b>C5 Government interest.</b> Khas, acquired, waqf, debottar, vested.</p>
+      <p><b>C6 Court injunction.</b> Any pending suit recorded against the dag.</p>
+      <p><b>C7 Survey chain.</b> CS to SA to RS to BS continuity for the dag, with a flag where the chain breaks.</p>
+      <p>Every block carries a reason code, the evidence and an appeal number. We added the appeal route deliberately. In Telangana, where registration is blocked automatically against a prohibited list, migration errors put thousands of legitimate private plots on that list and owners only discovered it at the counter <span class="cite">[8]</span>. A gate without an appeal path becomes a new kind of injustice.</p>
+    </div>
+  </div>
+  <div class="foot"><span>Silicon Knights, LandTech 2026</span><span>Page 1 of 4</span></div>
+</section>
+
+<!-- ============ PAGE 2 ============ -->
+<section class="page">
+  <h2 style="margin-top:0">4. The two additions (P6)</h2>
+  <h3>4.1 Owner Lock and Owner Alert (C8)</h3>
+  <p>An owner registers his dag against his NID and mobile number. From then on, any deed, mutation or mortgage touching that dag sends him an SMS in Bangla and English within seconds. He can also lock the dag. A locked dag does not block a sale outright: the request is <b>held</b> and the owner gets a 48-hour notice on his own login with two buttons, "yes, it is me" and "no, not me". Yes lets the deed through; no blocks it; silence after 48 hours turns into a warning that the officer must answer in writing, with a fingerprint.</p>
+  <p>This is ordinary practice in United States county recorder offices and is now being made compulsory. Fifteen states require recorders to run owner alert systems, verify identity, or intervene when a suspicious document is filed; in Texas the recorder must notify the last known owner and refer the document to the district attorney <span class="cite">[9]</span>. From 1 January 2027 every California county must notify the owner whenever a deed or mortgage is recorded against his property <span class="cite">[10]</span>. Leavenworth County in Kansas and Platte County in Missouri go further and let an owner freeze his own deed <span class="cite">[9]</span>.</p>
+  <p>Bangladesh has nothing of the kind. Every existing service is built around the buyer and the office. Nobody is watching on behalf of the person who already owns the land, which is exactly why a man working abroad, or a family that has just buried someone, finds out far too late. In Moulvibazar a Bangladesh Bank officer described losing control of family debutter property to forged signatures and a forged power of attorney, and said he could not even pay his land tax because false deeds had been filed at the land office <span class="cite">[11]</span>.</p>
+  <h3>4.2 Encumbrance oracle (C9)</h3>
+  <p>Before registration, Dag asks the banking side one question: is there a live charge on this dag? It gets back yes or no, the date the charge was created, and the lender's name. Nothing else.</p>
+  <p>India solved this in 2011 with CERSAI, a central registry of security interests created so that a second lender can see the first lender's charge before granting a loan; the public can search it for ten rupees <span class="cite">[12]</span>. Bangladesh has the data but not the access. Bangladesh Bank's Credit Information Bureau runs a Collateral Information System, and since 2018 banks have been required to pull a collateral report before accepting a mortgage <span class="cite">[13]</span>. It is closed to citizens and to sub-registrars. The cost of that is visible: REHAB had received around 340 complaints of hidden developer mortgages by September last year, involving close to Tk 1,500 crore of buyers' money, and said openly that the country lacks a central digital registry of mortgaged property <span class="cite">[14]</span>.</p>
+  <p>Our contribution is not the registry. It is the yes/no oracle. Bangladesh Bank cannot open CIB records to the public without amending the Bangladesh Bank Order <span class="cite">[15]</span>, so a design that demands open data is a design that never ships. A signed yes/no discloses one fact, leaks no borrower information, and needs no change in the law. The same oracle serves a bank's loan desk, so a second loan against a pledged plot is refused before any money moves, which is the job CERSAI does in India. Every reply is logged with what went out and what stayed inside the bank.</p>
+
+  <h2>5. System architecture</h2>
+  <div class="fig">
+    <div class="layer">CLIENTS (five role logins)</div>
+    <div class="row r5">
+      <div class="bx"><b>Sub-Registry counter</b><small>clearance request, execute</small></div>
+      <div class="bx"><b>AC Land queue</b><small>auto-opened namjari, record health</small></div>
+      <div class="bx new"><b>Owner's phone</b><small>SMS, lock, yes / not me</small></div>
+      <div class="bx"><b>Bank loan desk</b><small>collateral check</small></div>
+      <div class="bx"><b>Buyer</b><small>mouza map, QR verify</small></div>
+    </div>
+    <div class="bar">API gateway: role check on every route, sessions, lockout, rate limits, one workspace per browser, audit of every call</div>
+    <div class="layer">CORE</div>
+    <div class="row r4">
+      <div class="bx"><b>Rules engine</b><small>9 checks, each returns code, verdict, evidence; never stops at the first failure</small></div>
+      <div class="bx"><b>Area ledger</b><small>append-only transfers per dag; the sum of shares can never exceed the area</small></div>
+      <div class="bx new"><b>Lock and alert service</b><small>subscriptions, lock state, 48 h notice, bilingual SMS queue</small></div>
+      <div class="bx"><b>Clearance signer</b><small>Ed25519, secret server key; certificate and short QR token</small></div>
+    </div>
+    <div class="layer">DATA AND EXTERNAL</div>
+    <div class="row r5">
+      <div class="bx"><b>Record store</b><small>khatian, dag, survey</small></div>
+      <div class="bx"><b>Flag lists</b><small>khas, acquired, suits</small></div>
+      <div class="bx"><b>Audit chain</b><small>hash-chained, append only</small></div>
+      <div class="bx dash"><b>NID service</b><small>mocked in prototype</small></div>
+      <div class="bx dash new"><b>Charge oracle</b><small>CIB side, mocked; signs yes / no</small></div>
+    </div>
+    <div class="note">Dashed boxes are systems we do not own. In the prototype they are mock services behind the same interface. In production the oracle returns one signed fact, so no borrower data leaves Bangladesh Bank.</div>
+  </div>
+  <div class="cap">Figure 1. System architecture. Violet boxes are our two additions; dashed boxes are mocked boundaries.</div>
+  <div class="foot"><span>Silicon Knights, LandTech 2026</span><span>Page 2 of 4</span></div>
+</section>
+
+<!-- ============ PAGE 3 ============ -->
+<section class="page">
+  <h2 style="margin-top:0">6. Decision flow at the counter</h2>
+  <div class="fig">
+    <div class="flow">
+      <div class="fb dark">Clearance request</div><div class="arrow"></div>
+      <div class="fb">Resolve dag, load record, flags, owner lock</div><div class="arrow"></div>
+      <div class="allchecks">
+        <div class="t">Run all nine checks. Never stop at the first failure: the result lists every reason.</div>
+        <div class="chips"><span class="chip">C1 seller</span><span class="chip">C2 area ledger</span><span class="chip">C3 pending deed</span><span class="chip">C4 khajna</span><span class="chip">C5 govt interest</span><span class="chip">C6 injunction</span><span class="chip">C7 survey</span></div>
+        <div class="chips"><span class="chip new">C8 owner lock (addition 1)</span><span class="chip new">C9 encumbrance oracle, signed yes / no (addition 2)</span></div>
+      </div><div class="arrow"></div>
+      <div class="fb">The worst verdict decides: blocked, then held, then warn, then pass</div><div class="arrow"></div>
+      <div class="outs">
+        <div class="out o-b"><b>BLOCKED</b><span>reasons, evidence, appeal number</span></div>
+        <div class="out o-h"><b>HELD</b><span>owner answers on his phone; "not me" blocks; 48 h silence becomes a warning</span></div>
+        <div class="out o-w"><b>WARN</b><span>officer proceeds only with a written note, printed on the clearance</span></div>
+        <div class="out o-p"><b>PASS</b><span>clearance issued at once</span></div>
+      </div><div class="arrow"></div>
+      <div class="fb dark">Signed clearance with QR, verifiable offline</div><div class="arrow"></div>
+      <div class="fb">At execution all checks run again. Anything changed (a new loan, another deed): the clearance is void.</div><div class="arrow"></div>
+      <div class="fb dark">Deed registered: ledger updated, namjari opened, owner texted, audit row appended</div>
+    </div>
+  </div>
+  <div class="cap">Figure 2. Decision flow. Violet marks the two additions. The gate reports every failed check, not the first one.</div>
+
+  <h2>7. Sequence of one honest sale, and one attack</h2>
+  <div class="fig seq">
+    <div class="actors"><div class="actor">Seller / buyer</div><div class="actor">Sub-registrar</div><div class="actor">Dag gate</div><div class="actor">Charge oracle</div><div class="actor">AC Land</div><div class="actor own">Real owner</div></div>
+    <div style="position:relative;height:208px">
+      <div class="lanes" style="position:absolute;inset:0"><div class="lane"></div><div class="lane"></div><div class="lane"></div><div class="lane"></div><div class="lane"></div><div class="lane"></div></div>
+      <div class="msgs">
+        <div class="m r" style="grid-column:2/4;grid-row:1">1. deed, dag 412, 10 decimals</div>
+        <div class="m r" style="grid-column:4/6;grid-row:2">2. request clearance</div>
+        <div class="m r" style="grid-column:6/8;grid-row:3">3. any charge on 412?</div>
+        <div class="m l dash" style="grid-column:6/8;grid-row:4">4. no (signed)</div>
+        <div class="m r sms" style="grid-column:6/12;grid-row:5">5. SMS: a deed on your dag 412 is at the counter now</div>
+        <div class="m l dash" style="grid-column:4/6;grid-row:6">6. PASS + QR</div>
+        <div class="m r" style="grid-column:4/6;grid-row:7">7. execute</div>
+        <div class="m r" style="grid-column:6/10;grid-row:8">8. re-check, then open namjari, no citizen application</div>
+        <div class="m l dash" style="grid-column:6/10;grid-row:9">9. case number, ledger updated</div>
+        <div class="m l dash" style="grid-column:2/6;grid-row:10">10. deed number and namjari case</div>
+        <div class="attack" style="grid-column:1/13;grid-row:11">THE ATTACK, same dag, two weeks later</div>
+        <div class="m r" style="grid-column:2/4;grid-row:12">11. same seller, 10 more</div>
+        <div class="m r" style="grid-column:4/6;grid-row:13">12. request clearance</div>
+        <div class="blockbox" style="grid-column:6/13;grid-row:12/15">BLOCKED. C2: dag 412 has 12 decimals on record, 10 already transferred, 10 asked. Short by 8. Owner texted. Appeal number issued.</div>
+      </div>
+    </div>
+  </div>
+  <div class="cap">Figure 3. The honest sale clears in seconds. The second sale of the same land cannot clear, because arithmetic does not negotiate.</div>
+
+  <h2>8. Data pipeline for a mouza</h2>
+  <div class="fig">
+    <div class="small" style="text-align:center;margin-bottom:5px">One-time onboarding per mouza. The reconciliation report is useful before the gate even runs: it names every dag whose deed history already exceeds its recorded area.</div>
+    <div class="pipe">
+      <div class="bx"><b>Khatian + deed records</b><small>dummy CSV seed</small></div><div class="ar">&#9656;</div>
+      <div class="bx"><b>Normalise to dag key</b><small>mouza + JL + dag</small></div><div class="ar">&#9656;</div>
+      <div class="bx"><b>Build survey chain</b><small>CS, SA, RS, BS; flag breaks</small></div><div class="ar">&#9656;</div>
+      <div class="bx"><b>Seed area ledger</b><small>opening balance from deed history</small></div><div class="ar">&#9656;</div>
+      <div class="bx"><b>Attach flags</b><small>khas, acquired, suits</small></div><div class="ar">&#9656;</div>
+      <div class="bx done"><b>Mouza ready</b><small>reconciliation report</small></div>
+    </div>
+  </div>
+  <div class="cap">Figure 4. Onboarding pipeline. Run once per mouza.</div>
+  <div class="foot"><span>Silicon Knights, LandTech 2026</span><span>Page 3 of 4</span></div>
+</section>
+
+<!-- ============ PAGE 4 ============ -->
+<section class="page">
+  <h2 style="margin-top:0">9. The prototype and its tech stack</h2>
+  <p>The same backend code runs in three places. A Node server on Render holds the API; the front end on Vercel calls it across origins; and if the free Render service is asleep for more than 80 seconds, the page runs the same backend inside the browser, so a judge never meets a broken screen. Each browser gets its own workspace on the server, so judges sharing one link never see each other's clicks. The demo has five role logins (sub-registrar, landowner, AC Land, bank officer, buyer) with role checks on every route, salted and stretched password hashes, a lockout after five wrong tries, and 12-hour sessions.</p>
+  <p>Clearances are signed with Ed25519 (TweetNaCl) over canonical JSON, with secret keys on the server. The QR code carries a short signed token with only the last four NID digits, verified on the buyer's phone with the public key. The audit log is a SHA-512 hash chain. Every screen, SMS, error and guide step exists in English and Bangla, with Bangla digits, lakh grouping and Dhaka time. Thirty-four automated tests, three of them over real HTTP, run on every push. The demo page shows each API call live, with the steps inside the gate. We are not using a blockchain. The threat here is bad data entering a trusted registry, and a distributed ledger does not check whether a seller owns the land. A rules engine does.</p>
+
+  <h2>10. Nationwide applicability</h2>
+  <p>The gate is a service, not a replacement system. It sits between offices that already exist and speaks the identifiers those offices already use, so it can be switched on one upazila at a time, in read-only advisory mode first, and the reconciliation report alone gives the AC (Land) office a worklist on day one. Punjab in Pakistan ran this play and brought property registration down from 56 days to 11 across 55 million landowner records <span class="cite">[16]</span>. Karnataka made a verified digital record compulsory before registration, and revenue officials report that unauthorised registrations and the same-plot-sold-twice pattern stopped, while genuine registrations did not fall <span class="cite">[17]</span>.</p>
+  <p>Beyond registration, the same data answers the questions the brief lists for other offices: banks checking collateral, buyers checking a plot on the mouza map before they pay, acquisition offices identifying rightful owners before paying compensation, and courts needing a dated ownership history.</p>
+  <h3>What we are not claiming</h3>
+  <p>We did not invent the registration-to-mutation link; the government is already building it <span class="cite">[3]</span>. We are not proposing conclusive title. Mutation remains evidentiary, not determinative of ownership. And the charge oracle depends on a cooperation that does not exist yet. We have built our side of it and mocked the other side honestly, and the README says so.</p>
+
+  <h2>11. Team and mentors</h2>
+  <table class="team">
+    <tr><td>Team leader</td><td>Tammam Ibn Aman, ID 232-15-755, Section 65_D, Dept. of CSE, DIU</td></tr>
+    <tr><td>Member</td><td>[second student name, ID, section]</td></tr>
+    <tr><td>Faculty mentor</td><td>Tamanna Sultana, Lecturer, Dept. of CSE, DIU</td></tr>
+    <tr><td>Industry mentor</td><td>MD Zafor Iqbal, CSE-TECH</td></tr>
+  </table>
+  <p class="small">All data in the prototype is invented: names, NIDs (999 prefix), phone numbers (010 prefix) and land records. The one exception is the landowner demo login, which uses the team leader's own phone number at his request; no SMS is ever sent. AI tools used are disclosed in the README, and both students can explain every rule function and every line of the gate.</p>
+
+  <h2>References</h2>
+  <ol class="refs">
+    <li>The Daily Star, "Messy reality of Bangladesh's online land registration". thedailystar.net/supplements/your-property-guru/news/messy-reality-bangladeshs-online-land-registration-4100206</li>
+    <li>UN Public Service Award 2020, e-Mutation, Ministry of Land, Bangladesh. publicadministration.un.org/unpsa/database/Winners/2020-winners/e-mutation</li>
+    <li>Registration-Mutation Interconnection, automatic mutation, inaugurated 29 March 2023. bmirror.net/ensuring-clarity-mutation-process-in-bangladesh-land-management/</li>
+    <li>নিবন্ধন (সংশোধনী) অধ্যাদেশ, ২০২৬, e-registration. enews71.com/national/news/166890</li>
+    <li>The Daily Star, "One in 7 households facing land disputes" (PRI / BRAC HRLS study). thedailystar.net/one-in-7-households-facing-land-disputes-36783</li>
+    <li>The Observer, "Land case backlog weighs on our legal system". observerbd.com/news/552680</li>
+    <li>Prothom Alo, "Faridpur brothers snatch land and life with fake documents". en.prothomalo.com/bangladesh/crime-and-law/faridpur-brothers-snatch-land-and-life-with-fake-documents</li>
+    <li>Section 22A prohibited land, Telangana, and its false-flag problem. 1acre.in/guides/telangana/22a-prohibited-land-check-telangana</li>
+    <li>MOST Policy Initiative, "Real Estate Title Fraud" (state alert mandates, deed freeze). mostpolicyinitiative.org/science-note/real-estate-title-fraud/</li>
+    <li>California deed fraud notification programme, SB 255, effective 1 January 2027. 805title.com/california-deed-fraud-notification-program/</li>
+    <li>The Daily Star, "150-yr-old Zamindar Bari: falling prey to grabbers". thedailystar.net/backpage/150-yr-old-zamindar-bari-falling-prey-grabbers-1569661</li>
+    <li>CERSAI, Central Registry of Securitisation Asset Reconstruction and Security Interest of India, established 2011. compliancecalendar.in/learn/cersai-registration-process-rules-legal-framework-in-india</li>
+    <li>Bangladesh Bank, Credit Information Bureau circular on the Collateral Information System, 26 April 2018. bb.org.bd/mediaroom/circulars/cib/apr262018cib02e.pdf</li>
+    <li>TBS News, "We bought homes, now the bank owns them: hidden mortgages haunt buyers". tbsnews.net/bangladesh/we-bought-homes-now-bank-owns-them-hidden-mortgages-haunt-buyers-1273506</li>
+    <li>Bangladesh Bank Order 1972, sections 46(1) and 46(2), on disclosure of CIB information. Reported in Dhaka Tribune, "Bangladesh Bank moves to stop collateral fraud".</li>
+    <li>Punjab Land Records Authority, LRMIS outcomes. graana.com/blog/punjab-land-record-authority/</li>
+    <li>The South First, "How e-Khata camps are taking services to Bengaluru property owners' doorsteps". thesouthfirst.com/karnataka/how-e-khata-camps-are-taking-services-to-bengaluru-property-owners-doorsteps/</li>
+  </ol>
+  <div class="foot"><span>Silicon Knights, LandTech 2026</span><span>Page 4 of 4</span></div>
+</section>
+</body>
+</html>
