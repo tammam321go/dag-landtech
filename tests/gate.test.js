@@ -166,3 +166,99 @@ test('owner can lock and unlock a dag', () => {
   assert.equal(req.verdict, 'hold');
   assert.equal(call('POST', '/api/owner/dags/431/lock', { on: true }).status, 403);
 });
+
+// ---------------- added features ----------------
+
+test('C2 blocks a dag the record already over-allocated (449: 18 on a 15 dec plot)', () => {
+  login();
+  const req = call('POST', '/api/counter/clearance', { dag: '449', sellerNid: '9990001013', sellerName: 'Joynal Abedin', buyerName: 'Z', buyerNid: '9990009997', share: 2 }).body.request;
+  const c2 = check(req, 'C2');
+  assert.equal(c2.verdict, 'block');
+  assert.equal(c2.math.over, true);
+  assert.equal(c2.math.totalHeld, 18);
+});
+
+test('mouza map colours dags from the record only', () => {
+  login();
+  const m = call('GET', '/api/mouza').body;
+  const st = Object.fromEntries(m.dags.map((d) => [d.no, d.status]));
+  assert.deepEqual(st, { 412: 'clear', 418: 'locked', 425: 'clear', 431: 'restricted', 433: 'care', 440: 'restricted', 447: 'care', 449: 'restricted' });
+  assert.equal(m.fillers.length, 6);
+  const ask = call('POST', '/api/mouza/425/charge').body;
+  assert.equal(ask.charge, true);
+  assert.equal(ask.signatureValid, true);
+});
+
+test('reconciliation finds the over-sold dag and the other gaps', () => {
+  login();
+  const r = call('GET', '/api/acland/reconciliation').body;
+  assert.equal(r.dagsChecked, 8);
+  assert.equal(r.overAllocated, 1);
+  assert.equal(r.issues[0].dag, '431');
+  assert.ok(r.issues.some((i) => i.dag === '449' && i.type === 'over'));
+  assert.ok(r.issues.some((i) => i.dag === '433' && i.type === 'survey'));
+});
+
+test('loan desk refuses a second loan on a mortgaged plot', () => {
+  login();
+  const p = Dag.server._state().loanPresets[0];
+  const r = call('POST', '/api/bank/check', p).body;
+  assert.equal(r.outcome, 'refuse');
+  assert.match(r.reasons.join(' '), /double financing/);
+  assert.equal(call('POST', '/api/bank/charges', p).status, 409);
+});
+
+test('mortgage on a locked dag waits for the owner, then blocks a later sale', () => {
+  login();
+  const p = Dag.server._state().loanPresets[1];
+  assert.equal(call('POST', '/api/bank/check', p).body.outcome, 'ok');
+  const reg = call('POST', '/api/bank/charges', p).body;
+  assert.equal(reg.charge.status, 'held');
+  assert.equal(reg.alertsSent[0].level, 'action');
+  assert.match(reg.alertsSent[0].textBn, /[ঀ-৿]/);
+  const a = call('GET', '/api/owner/alerts').body.alerts.find((x) => x.kind === 'mortgage');
+  const ans = call('POST', `/api/owner/alerts/${a.id}/respond`, { answer: 'me' }).body;
+  assert.equal(ans.charge.status, 'live');
+  const sale = call('POST', '/api/counter/clearance', preset(4)).body.request;
+  assert.equal(check(sale, 'C9').verdict, 'block');
+  const mine = call('GET', '/api/owner/dags').body.find((d) => d.dag === '418');
+  assert.equal(mine.mortgages[0].status, 'live');
+});
+
+test('owner SMS carries Bangla text with Bangla digits', () => {
+  login();
+  const r = call('POST', '/api/counter/clearance', preset(1)).body;
+  assert.match(r.alertsSent[0].textBn, /৪১২/); // 412 in Bangla digits
+});
+
+test('real HTTP server: login, clearance, trace header, static page in http mode', async () => {
+  const { spawn } = require('node:child_process');
+  const os = require('node:os');
+  const fs = require('node:fs');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'dag-'));
+  const port = 18000 + Math.floor(Math.random() * 1000);
+  const child = spawn(process.execPath, [path.join(__dirname, '../server/http.js')], { env: Object.assign({}, process.env, { PORT: String(port), DAG_DATA_DIR: dir }) });
+  try {
+    const base = `http://127.0.0.1:${port}`;
+    let up = false;
+    for (let i = 0; i < 50 && !up; i++) {
+      try { up = (await fetch(base + '/api/health')).ok; } catch (e) { await new Promise((r) => setTimeout(r, 100)); }
+    }
+    assert.ok(up, 'server did not start');
+    const login = await fetch(base + '/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone: Dag.DEMO.phone, password: Dag.DEMO.password }) });
+    assert.equal(login.status, 200);
+    const { token } = await login.json();
+    const r = await fetch(base + '/api/counter/clearance', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token }, body: JSON.stringify(preset(2)) });
+    const body = await r.json();
+    assert.equal(body.request.verdict, 'pass');
+    const trace = JSON.parse(decodeURIComponent(r.headers.get('x-dag-trace')));
+    assert.ok(trace.some((t) => t.to.startsWith('CIB')));
+    assert.equal((await fetch(base + '/api/me')).status, 401);
+    const html = await (await fetch(base + '/')).text();
+    assert.match(html, /name="dag-api" content="http"/);
+    assert.equal((await fetch(base + '/.git/config')).status, 404);
+    assert.ok(fs.existsSync(path.join(dir, 'store.json')));
+  } finally {
+    child.kill();
+  }
+});

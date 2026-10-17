@@ -81,8 +81,12 @@
           .reduce((s, t) => s + t.share, 0)
       );
       const available = r2(holder.share - pendingOut);
-      const math = { area: r2(dag.area), holds: r2(holder.share), pendingOut, available, requested: r2(share), short: r2(Math.max(0, share - available)) };
-      if (share > available + 1e-9) {
+      const totalHeld = r2(holders.filter((h) => h.dag === dag.no).reduce((s, h) => s + h.share, 0));
+      const over = totalHeld > dag.area + 1e-9;
+      const math = { area: r2(dag.area), totalHeld, over, holds: r2(holder.share), pendingOut, available, requested: r2(share), short: r2(Math.max(0, share - available)) };
+      if (over) {
+        add('C2', 'block', `The record already gives out ${f2(totalHeld)} dec of a ${f2(dag.area)} dec dag. Fix the record before any sale.`, { 'Over by': f2(totalHeld - dag.area) + ' dec', 'Recorded holders': recorded }, { math });
+      } else if (share > available + 1e-9) {
         add('C2', 'block', `Asks for ${f2(share)} dec, but only ${f2(available)} dec is left to sell.`, {}, { math });
       } else {
         add('C2', 'pass', `${f2(share)} of ${f2(available)} dec available is being sold.`, {}, { math });

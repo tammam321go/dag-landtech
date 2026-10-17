@@ -1,9 +1,9 @@
 /*
  * Dag API. A small router with the same shape as an HTTP backend:
  * handle(method, path, jsonBody, token) -> { status, body, trace }.
- * The client only talks to it through serialised JSON (see js/client/api.js),
- * so moving this file behind a real HTTP server changes no screen code.
- * `trace` lists what happened inside the gate for one request. The demo's
+ * In the browser build, js/client/api.js calls it through serialised JSON.
+ * In server/http.js the same file sits behind a real Node HTTP server.
+ * `trace` lists what happened inside the gate for one request; the demo's
  * API log shows it so judges can see the internal calls.
  */
 (function (root) {
@@ -16,13 +16,33 @@
   const nowIso = () => new Date().toISOString();
   const mask = (phone) => (phone ? phone.slice(0, 3) + '•••••' + phone.slice(-3) : 'unknown');
   const step = (to, call, data) => ({ to, call, data });
+  const fyStart = (fy) => parseInt(String(fy).slice(0, 4), 10);
+  const day = (iso) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  const tk = (n) => Number(n).toLocaleString('en-IN');
+  const digits = (v) => String(v == null ? '' : v).replace(/\D/g, '');
+
+  // Bangla text for SMS. Digits are written in Bangla numerals.
+  const BN_DIGITS = '০১২৩৪৫৬৭৮৯';
+  const bn = (v) => String(v).replace(/[0-9]/g, (d) => BN_DIGITS[Number(d)]);
+  const bnN = (n) => bn(String(r2(n)));
+  const CHECK_BN = {
+    C1: 'বিক্রেতার নাম রেকর্ডে নেই',
+    C2: 'বিক্রির মতো জমি অবশিষ্ট নেই',
+    C3: 'এই দাগে আরেকটি দলিল চলমান',
+    C4: 'বিক্রেতার নামজারি হয়নি',
+    C5: 'জমিটি সরকারি স্বার্থের তালিকায় আছে',
+    C6: 'আদালতের নিষেধাজ্ঞা আছে',
+    C7: 'জরিপের ধারাবাহিকতা নেই',
+    C8: 'আপনি দলিলটি অস্বীকার করেছেন',
+    C9: 'জমিতে ব্যাংকের দায় আছে',
+  };
 
   let state = null;
 
   // ---------- storage ----------
   function fresh() {
     state = Dag.seed.create();
-    audit('system', 'demo.seeded', { records: state.dags.length + ' dags' });
+    audit('system', 'demo.seeded', { dags: state.dags.length });
   }
   function load() {
     try {
@@ -116,10 +136,10 @@
     const s = (v) => String(v == null ? '' : v).trim();
     const input = {
       dag: s(b.dag),
-      sellerNid: s(b.sellerNid).replace(/\D/g, ''),
+      sellerNid: digits(b.sellerNid),
       sellerName: s(b.sellerName),
       buyerName: s(b.buyerName),
-      buyerNid: s(b.buyerNid).replace(/\D/g, ''),
+      buyerNid: digits(b.buyerNid),
       share: r2(parseFloat(b.share)),
     };
     if (!input.dag) throw fail(400, 'Enter a dag number.');
@@ -129,20 +149,124 @@
     return input;
   }
 
+  // ---------- alerts (SMS) ----------
+  function sendAlert(personId, a, trace) {
+    const p = person(personId);
+    if (!p) return null;
+    const alert = Object.assign(
+      { id: nextId('alert', 'ALR'), personId: p.id, at: nowIso(), read: false, response: null, actionRequired: false, kind: 'deed', requestId: null, chargeId: null },
+      a
+    );
+    state.alerts.push(alert);
+    trace.push(step('SMS gateway (mock)', 'POST /sms', { to: mask(p.phone), bn: alert.textBn, en: alert.text }));
+    return { alertId: alert.id, toPersonId: p.id, to: mask(p.phone), level: alert.level, title: alert.title, text: alert.text, titleBn: alert.titleBn, textBn: alert.textBn };
+  }
+  const subscribers = (dag) => state.subscriptions.filter((s) => s.dag === dag).map((s) => s.personId);
+
+  function notifyOwners(req, kind, trace, extra) {
+    const sent = [];
+    const office = state.office.name;
+    const officeBn = state.office.nameBn;
+    const share = f2(req.share);
+    const d = req.dag;
+    for (const pid of subscribers(d)) {
+      let a = null;
+      if (kind === 'check') {
+        if (req.status === 'hold') {
+          a = {
+            level: 'action', actionRequired: true, requestId: req.id,
+            title: 'Is this you?',
+            text: `Someone is registering ${share} dec of your dag ${d} at ${office} now, with your NID. Your dag is locked, so nothing happens until you answer.`,
+            titleBn: 'এটা কি আপনি?',
+            textBn: `আপনার দাগ ${bn(d)}-এর ${bnN(req.share)} শতাংশ জমি এখন ${officeBn}-এ আপনার এনআইডি দিয়ে রেজিস্ট্রি করার চেষ্টা হচ্ছে। দাগটি লক করা, তাই আপনি উত্তর না দেওয়া পর্যন্ত কিছুই হবে না।`,
+          };
+        } else if (req.status === 'blocked') {
+          const first = req.checks.find((c) => c.verdict === 'block');
+          a = {
+            level: 'danger', requestId: req.id,
+            title: `Deed on dag ${d} stopped`,
+            text: `A deed for ${share} dec of your dag ${d} was stopped at ${office}. Reason: ${first ? first.code + ' ' + first.summary : 'blocked'}`,
+            titleBn: `দাগ ${bn(d)}-এর দলিল আটকানো হয়েছে`,
+            textBn: `আপনার দাগ ${bn(d)}-এর ${bnN(req.share)} শতাংশের একটি দলিল ${officeBn}-এ আটকানো হয়েছে। কারণ: ${first ? CHECK_BN[first.code] : 'যাচাইয়ে আটকেছে'}।`,
+          };
+        } else if (req.status === 'warn') {
+          a = {
+            level: 'info', requestId: req.id,
+            title: `Deed on dag ${d} at the counter`,
+            text: `A deed for ${share} dec of your dag ${d} is at ${office} with warnings.`,
+            titleBn: `দাগ ${bn(d)}-এর দলিল কাউন্টারে`,
+            textBn: `আপনার দাগ ${bn(d)}-এর ${bnN(req.share)} শতাংশের একটি দলিল সতর্কতাসহ ${officeBn}-এ আছে।`,
+          };
+        } else {
+          a = {
+            level: 'info', requestId: req.id,
+            title: `Deed on dag ${d} checked`,
+            text: `A deed for ${share} dec of your dag ${d} to ${req.buyerName} passed the clearance check at ${office}. If this was not you, report it now.`,
+            titleBn: `দাগ ${bn(d)}-এর দলিল যাচাই হয়েছে`,
+            textBn: `আপনার দাগ ${bn(d)}-এর ${bnN(req.share)} শতাংশ জমি ${req.buyerName}-এর কাছে বিক্রির দলিল ${officeBn}-এ যাচাইয়ে উত্তীর্ণ হয়েছে। এটি আপনি না হলে এখনই জানান।`,
+          };
+        }
+      } else if (kind === 'executed') {
+        a = {
+          level: 'success', requestId: req.id,
+          title: `Deed ${extra.deed.id} registered`,
+          text: `${share} dec of your dag ${d} went to ${req.buyerName}. Namjari ${extra.kase.id} opened by itself. You do not need to apply.`,
+          titleBn: `দলিল নিবন্ধিত হয়েছে`,
+          textBn: `আপনার দাগ ${bn(d)}-এর ${bnN(req.share)} শতাংশ ${req.buyerName}-এর নামে গেছে। নামজারি নিজে থেকেই খোলা হয়েছে, আলাদা আবেদন লাগবে না।`,
+        };
+      } else if (kind === 'mutated') {
+        a = {
+          level: 'success', requestId: req.id,
+          title: `Khatian corrected, dag ${d}`,
+          text: extra.text,
+          titleBn: `দাগ ${bn(d)}-এর খতিয়ান সংশোধিত`,
+          textBn: `${req.buyerName}-এর নামে নতুন খতিয়ান খোলা হয়েছে। দাগ ${bn(d)}-এ আপনার নামে এখন ${bnN(extra.left)} শতাংশ।`,
+        };
+      }
+      const s = a && sendAlert(pid, a, trace);
+      if (s) sent.push(s);
+    }
+    return sent;
+  }
+
+  function notifyMortgage(ch, held, lock, trace) {
+    const sent = [];
+    const targets = held ? [lock.personId] : subscribers(ch.dag);
+    for (const pid of targets) {
+      const a = held
+        ? {
+            kind: 'mortgage', chargeId: ch.id, level: 'action', actionRequired: true,
+            title: 'Is this mortgage yours?',
+            text: `${ch.lender} is registering a mortgage of Tk ${tk(ch.amount)} on your dag ${ch.dag}. Your dag is locked, so nothing is registered until you answer.`,
+            titleBn: 'এই বন্ধক কি আপনার?',
+            textBn: `${ch.lender} আপনার দাগ ${bn(ch.dag)}-এ ${bn(tk(ch.amount))} টাকার বন্ধক নিবন্ধন করছে। দাগটি লক করা, তাই আপনার উত্তর ছাড়া কিছুই নিবন্ধিত হবে না।`,
+          }
+        : {
+            kind: 'mortgage', chargeId: ch.id, level: 'info',
+            title: `Mortgage registered on dag ${ch.dag}`,
+            text: `${ch.lender} registered a mortgage of Tk ${tk(ch.amount)} on your dag ${ch.dag}. If this was not you, report it now.`,
+            titleBn: `দাগ ${bn(ch.dag)}-এ বন্ধক নিবন্ধিত`,
+            textBn: `${ch.lender} আপনার দাগ ${bn(ch.dag)}-এ ${bn(tk(ch.amount))} টাকার বন্ধক নিবন্ধন করেছে। এটি আপনি না হলে এখনই জানান।`,
+          };
+      const s = sendAlert(pid, a, trace);
+      if (s) sent.push(s);
+    }
+    return sent;
+  }
+
   // ---------- the gate ----------
+  function askOracle(dagNo, askedBy, trace) {
+    const q = Dag.oracle.query(state, { dag: dagNo, askedBy });
+    const sigValid = Dag.oracle.verify(q);
+    trace.push(step('CIB charge oracle (mock)', 'POST /oracle/charge', { asked: { dag: dagNo, by: askedBy }, reply: q.reply, signature: q.signature.slice(0, 20) + '...', signatureValid: sigValid }));
+    return { reply: q.reply, sigValid, keyId: q.keyId };
+  }
+
   function runChecks(req, trace) {
     const dag = dagByNo(req.dag);
     const found = state.persons.find((p) => p.nid === req.sellerNid);
     trace.push(step('NID service (mock)', `GET /nid/${req.sellerNid}`, found ? { status: 'found', name: found.name } : { status: 'not found' }));
-
-    let oracle = null;
-    if (dag) {
-      const q = Dag.oracle.query(state, { dag: dag.no, askedBy: state.office.name });
-      const sigValid = Dag.oracle.verify(q);
-      oracle = { reply: q.reply, sigValid, keyId: q.keyId };
-      trace.push(step('CIB charge oracle (mock)', 'POST /oracle/charge', { asked: { dag: dag.no }, reply: q.reply, signature: q.signature.slice(0, 20) + '...', signatureValid: sigValid }));
-    }
-
+    const oracle = dag ? askOracle(dag.no, state.office.name, trace) : null;
     const lock = dag ? state.locks.find((l) => l.dag === dag.no && l.on) : null;
     const lockOwner = lock ? person(lock.personId) : null;
     const res = Dag.engine.evaluate({
@@ -204,55 +328,73 @@
       validUntil: new Date(Date.parse(issuedAt) + 24 * 3600 * 1000).toISOString(),
     };
     const signature = C().sign(payload, C().keys.gate());
-    state.clearances.push({
-      id: payload.id,
-      requestId: req.id,
-      dag: req.dag,
-      share: payload.share,
-      sellerName: req.sellerName,
-      status: 'issued',
-      issuedAt,
-      validUntil: payload.validUntil,
-      payload,
-      signature,
-    });
+    state.clearances.push({ id: payload.id, requestId: req.id, dag: req.dag, share: payload.share, sellerName: req.sellerName, status: 'issued', issuedAt, validUntil: payload.validUntil, payload, signature });
     req.clearanceId = payload.id;
     trace.push(step('Clearance signer', 'Ed25519 sign(canonical JSON)', { id: payload.id, signature: signature.slice(0, 20) + '...' }));
     audit(state.office.id, 'clearance.issued', { clearance: payload.id, dag: req.dag });
   }
 
-  function notifyOwners(req, kind, trace, extra) {
-    const sent = [];
-    const subs = state.subscriptions.filter((s) => s.dag === req.dag);
-    for (const sub of subs) {
-      const p = person(sub.personId);
-      if (!p) continue;
-      const share = f2(req.share);
-      let a = null;
-      if (kind === 'check') {
-        if (req.status === 'hold') {
-          a = { level: 'action', title: 'Is this you?', text: `Someone is registering ${share} dec of your dag ${req.dag} at ${state.office.name} now, with your NID. Your dag is locked, so nothing happens until you answer.`, actionRequired: true };
-        } else if (req.status === 'blocked') {
-          const first = req.checks.find((c) => c.verdict === 'block');
-          a = { level: 'danger', title: `Deed on dag ${req.dag} stopped`, text: `A deed for ${share} dec of your dag ${req.dag} was stopped at ${state.office.name}. Reason: ${first ? first.code + ' ' + first.summary : 'blocked'}` };
-        } else if (req.status === 'warn') {
-          a = { level: 'info', title: `Deed on dag ${req.dag} at the counter`, text: `A deed for ${share} dec of your dag ${req.dag} is at ${state.office.name} with warnings.` };
-        } else {
-          a = { level: 'info', title: `Deed on dag ${req.dag} checked`, text: `A deed for ${share} dec of your dag ${req.dag} to ${req.buyerName} passed the clearance check at ${state.office.name}. If this was not you, tap to report it.` };
-        }
-      } else if (kind === 'executed') {
-        a = { level: 'success', title: `Deed ${extra.deed.id} registered`, text: `${share} dec of your dag ${req.dag} went to ${req.buyerName}. Namjari ${extra.kase.id} opened by itself. You do not need to apply.` };
-      } else if (kind === 'mutated') {
-        a = { level: 'success', title: `Khatian corrected, dag ${req.dag}`, text: extra.text };
-      }
-      if (!a) continue;
-      const alert = Object.assign({ id: nextId('alert', 'ALR'), personId: p.id, dag: req.dag, requestId: req.id, at: nowIso(), read: false, response: null, actionRequired: false }, a);
-      state.alerts.push(alert);
-      trace.push(step('SMS gateway (mock)', 'POST /sms', { to: mask(p.phone), text: alert.text }));
-      sent.push({ alertId: alert.id, toPersonId: p.id, to: mask(p.phone), level: alert.level, title: alert.title, text: alert.text });
-    }
-    return sent;
+  // ---------- map and reconciliation ----------
+  function dagSummary(d) {
+    const hs = state.holders.filter((h) => h.dag === d.no);
+    const totalHeld = r2(hs.reduce((s, h) => s + h.share, 0));
+    const pending = r2(state.transfers.filter((t) => t.dag === d.no && t.status === 'registered').reduce((s, t) => s + t.share, 0));
+    const flags = state.flags.filter((f) => f.dag === d.no);
+    const inj = state.injunctions.filter((i) => i.dag === d.no);
+    const locked = state.locks.some((l) => l.dag === d.no && l.on);
+    const taxDue = fyStart(state.currentFY) - fyStart(d.khajnaPaidUpto);
+    const gaps = ['CS', 'SA', 'RS', 'BS'].filter((k) => !d.survey[k]);
+    const reasons = [];
+    flags.forEach((f) => reasons.push({ level: 'restricted', type: 'flag', text: `${f.type}: ${f.ref}` }));
+    inj.forEach((i) => reasons.push({ level: 'restricted', type: 'injunction', text: `${i.order}: ${i.suit}` }));
+    if (totalHeld > d.area + 1e-9) reasons.push({ level: 'restricted', type: 'over', text: `Over-allocated: ${f2(totalHeld)} dec on record against a ${f2(d.area)} dec plot` });
+    if (locked) reasons.push({ level: 'locked', type: 'lock', text: 'The owner has locked this dag' });
+    if (taxDue > 0) reasons.push({ level: 'care', type: 'tax', text: `Land development tax ${taxDue} year${taxDue > 1 ? 's' : ''} due` });
+    if (gaps.length) reasons.push({ level: 'care', type: 'survey', text: `Survey chain gap at ${gaps.join(', ')}` });
+    hs.filter((h) => !h.mutated).forEach((h) => reasons.push({ level: 'care', type: 'mutation', text: `${person(h.personId).name} holds it without namjari` }));
+    if (pending > 0) reasons.push({ level: 'care', type: 'pending', text: `${f2(pending)} dec sold, namjari pending` });
+    const order = ['restricted', 'locked', 'care'];
+    const status = order.find((lv) => reasons.some((r) => r.level === lv)) || 'clear';
+    return {
+      no: d.no,
+      area: d.area,
+      landClass: d.landClass,
+      poly: d.poly,
+      survey: d.survey,
+      khajnaPaidUpto: d.khajnaPaidUpto,
+      status,
+      reasons,
+      totalHeld,
+      pending,
+      holders: hs.map((h) => {
+        const p = person(h.personId);
+        return { name: p.name, nid: p.nid, share: h.share, khatian: h.khatian, mutated: h.mutated };
+      }),
+    };
   }
+
+  // ---------- bank side ----------
+  function collateral(body, askedBy, trace) {
+    const dagNo = String(body.dag == null ? '' : body.dag).trim();
+    const dag = dagByNo(dagNo);
+    if (!dag) throw fail(404, `Dag ${dagNo || '(blank)'} is not in this mouza.`);
+    const nid = digits(body.borrowerNid);
+    const p = state.persons.find((x) => x.nid === nid) || null;
+    trace.push(step('NID service (mock)', `GET /nid/${nid}`, p ? { status: 'found', name: p.name } : { status: 'not found' }));
+    const holder = p ? state.holders.find((h) => h.dag === dag.no && h.personId === p.id) : null;
+    const oracle = askOracle(dag.no, askedBy, trace);
+    const reasons = [];
+    if (!holder) reasons.push(p ? `${p.name} is not a recorded holder of dag ${dag.no}.` : `NID ${nid || '(blank)'} returned no person.`);
+    if (!oracle.sigValid) reasons.push('The oracle reply failed its signature check.');
+    if (oracle.reply.charge) reasons.push(`Already pledged to ${oracle.reply.lender} since ${day(oracle.reply.since)}. A second loan on this plot would be double financing.`);
+    const waiting = state.bank.charges.find((c) => c.dag === dag.no && c.status === 'held');
+    if (waiting) reasons.push(`A mortgage by ${waiting.lender} is already waiting for the owner's answer.`);
+    state.flags.filter((f) => f.dag === dag.no).forEach((f) => reasons.push(`${f.type} land: ${f.ref}.`));
+    state.injunctions.filter((i) => i.dag === dag.no).forEach((i) => reasons.push(`${i.order}: ${i.suit}.`));
+    const lock = state.locks.find((l) => l.dag === dag.no && l.on) || null;
+    return { dag, person: p, holder, oracle, reasons, outcome: reasons.length ? 'refuse' : 'ok', lock };
+  }
+  const chargeView = (c) => ({ id: c.id, dag: c.dag, lender: c.lender, since: c.since, amount: c.amount, borrower: c.borrower, status: c.status, createdAt: c.createdAt || null, decidedAt: c.decidedAt || null });
 
   // ---------- router ----------
   const routes = [];
@@ -290,7 +432,7 @@
 
   // auth
   route('POST', '/api/auth/login', ({ body, trace }) => {
-    const phone = String(body.phone || '').replace(/\D/g, '');
+    const phone = digits(body.phone);
     const u = state.users.find((x) => x.phone === phone);
     const ok = u && u.passwordHash === C().hashHex(u.salt + String(body.password || ''));
     if (!ok) {
@@ -313,18 +455,14 @@
     return { ok: true };
   });
 
+  route('GET', '/api/health', () => ({ ok: true, records: state.dags.length, auditEntries: state.audit.length }), { public: true });
+
   // counter (sub-registrar)
   route('GET', '/api/counter/presets', () => ({ office: state.office, mouza: state.mouza, presets: state.presets }));
 
   route('POST', '/api/counter/clearance', ({ body, user, trace }) => {
     const input = cleanInput(body);
-    const req = Object.assign({ id: nextId('req', 'REQ') }, input, {
-      office: state.office.name,
-      officer: user.name,
-      createdAt: nowIso(),
-      status: 'new',
-      ownerResponse: null,
-    });
+    const req = Object.assign({ id: nextId('req', 'REQ') }, input, { office: state.office.name, officer: user.name, createdAt: nowIso(), status: 'new', ownerResponse: null });
     state.requests.push(req);
     trace.push(step('Gate', 'CREATE request', { id: req.id, dag: req.dag, share: req.share }));
     runChecks(req, trace);
@@ -369,7 +507,6 @@
     req.deedId = deed.id;
     trace.push(step('Registry', 'INSERT deed', { id: deed.id, clearance: clr.id }));
     trace.push(step('Area ledger', 'APPEND transfer', { dag: req.dag, out: deed.share, status: 'registered, not yet mutated' }));
-
     const kase = {
       id: nextId('nj', 'NJ'),
       deedId: deed.id,
@@ -408,8 +545,8 @@
     if (idx < 0) throw fail(409, 'The seller no longer holds this dag.');
     const h = state.holders[idx];
     h.share = r2(h.share - k.share);
-    const left = h.share;
-    if (left <= 0) state.holders.splice(idx, 1);
+    const left = Math.max(0, h.share);
+    if (h.share <= 0) state.holders.splice(idx, 1);
     state.meta.counters.kh += 1;
     const newKh = 'BS-' + state.meta.counters.kh;
     const bh = state.holders.find((x) => x.dag === k.dag && x.personId === k.toPersonId);
@@ -421,18 +558,92 @@
     k.status = 'approved';
     k.approvedAt = at;
     k.newKhatian = newKh;
-    const text = `Khatian ${newKh} opened for ${k.toName} (${f2(k.share)} dec). ${k.fromName} now holds ${f2(Math.max(0, left))} dec of dag ${k.dag}.`;
+    const text = `Khatian ${newKh} opened for ${k.toName} (${f2(k.share)} dec). ${k.fromName} now holds ${f2(left)} dec of dag ${k.dag}.`;
     k.timeline.push({ at, text });
-    trace.push(step('Record of rights', 'UPDATE holders', { dag: k.dag, seller: f2(Math.max(0, left)), buyer: f2(k.share), khatian: newKh }));
+    trace.push(step('Record of rights', 'UPDATE holders', { dag: k.dag, seller: f2(left), buyer: f2(k.share), khatian: newKh }));
     trace.push(step('Area ledger', 'MARK transfer mutated', { deed: k.deedId }));
     audit(user.id, 'namjari.approved', { case: k.id, khatian: newKh });
     const req = state.requests.find((r) => r.deedId === k.deedId);
-    const alertsSent = req ? notifyOwners(req, 'mutated', trace, { text }) : [];
+    const alertsSent = req ? notifyOwners(req, 'mutated', trace, { text, left }) : [];
     return { case: k, alertsSent };
+  });
+
+  route('GET', '/api/acland/reconciliation', ({ trace }) => {
+    const all = state.dags.map(dagSummary);
+    const issues = [];
+    all.forEach((d) => d.reasons.filter((r) => r.type !== 'lock').forEach((r) => issues.push({ dag: d.no, level: r.level, type: r.type, text: r.text })));
+    const rank = { restricted: 0, care: 1 };
+    issues.sort((a, b) => rank[a.level] - rank[b.level] || a.dag.localeCompare(b.dag));
+    trace.push(step('Reconciliation', 'scan every dag in the mouza', { dags: all.length, issues: issues.length }));
+    return {
+      mouza: `${state.mouza.name}, JL ${state.mouza.jl}`,
+      dagsChecked: all.length,
+      clean: all.filter((d) => d.reasons.every((r) => r.type === 'lock')).length,
+      overAllocated: issues.filter((i) => i.type === 'over').length,
+      issues,
+      at: nowIso(),
+    };
+  });
+
+  // mouza map (P5: check before you buy)
+  route('GET', '/api/mouza', () => ({ mouza: state.mouza, dags: state.dags.map(dagSummary), fillers: state.mapFillers }));
+
+  route('POST', '/api/mouza/:no/charge', ({ params, trace }) => {
+    const dag = dagByNo(params.no);
+    if (!dag) throw fail(404, `Dag ${params.no} is not in this mouza.`);
+    const o = askOracle(dag.no, 'Citizen search', trace);
+    audit('citizen', 'oracle.citizen_search', { dag: dag.no });
+    return { dag: dag.no, charge: o.reply.charge, since: o.reply.since, lender: o.reply.lender, signatureValid: o.sigValid, keyId: o.keyId };
+  });
+
+  // bank loan desk
+  route('GET', '/api/bank/desk', () => ({
+    desk: state.loanDesk,
+    presets: state.loanPresets,
+    charges: state.bank.charges.filter((c) => c.lender === state.loanDesk.lender).slice().reverse().map(chargeView),
+  }));
+
+  route('POST', '/api/bank/check', ({ body, trace }) => {
+    const c = collateral(body, state.loanDesk.lender, trace);
+    audit(state.loanDesk.lender, 'bank.collateral_checked', { dag: c.dag.no, outcome: c.outcome });
+    return {
+      dag: c.dag.no,
+      outcome: c.outcome,
+      reasons: c.reasons,
+      borrower: c.person ? c.person.name : null,
+      borrowerShare: c.holder ? c.holder.share : 0,
+      locked: !!c.lock,
+      oracle: { charge: c.oracle.reply.charge, since: c.oracle.reply.since, lender: c.oracle.reply.lender, signatureValid: c.oracle.sigValid, keyId: c.oracle.keyId },
+    };
+  });
+
+  route('POST', '/api/bank/charges', ({ body, trace }) => {
+    const c = collateral(body, state.loanDesk.lender, trace);
+    if (c.outcome === 'refuse') throw fail(409, c.reasons[0]);
+    const amount = Math.round(Number(body.amount));
+    if (!(amount > 0)) throw fail(400, 'Enter a loan amount in taka.');
+    const ch = {
+      id: nextId('chg', 'CHG'),
+      dag: c.dag.no,
+      lender: state.loanDesk.lender,
+      since: nowIso().slice(0, 10),
+      loanRef: 'LN-' + C().randomHex(3).toUpperCase(),
+      amount,
+      borrower: c.person.name,
+      borrowerNid: c.person.nid,
+      status: c.lock ? 'held' : 'live',
+      createdAt: nowIso(),
+    };
+    state.bank.charges.push(ch);
+    trace.push(step('CIB registry (mock)', c.lock ? 'HOLD charge for owner answer' : 'INSERT live charge', { id: ch.id, dag: ch.dag, status: ch.status }));
+    audit(state.loanDesk.lender, c.lock ? 'bank.charge_held' : 'bank.charge_registered', { charge: ch.id, dag: ch.dag });
+    const alertsSent = notifyMortgage(ch, !!c.lock, c.lock, trace);
+    return { charge: chargeView(ch), alertsSent };
   });
 
   // owner
   route('GET', '/api/owner/dags', ({ user }) => {
+    const me = person(user.personId);
     return state.holders
       .filter((h) => h.personId === user.personId)
       .map((h) => {
@@ -451,6 +662,7 @@
           alertsOn: state.subscriptions.some((s) => s.dag === h.dag && s.personId === user.personId),
           pendingOut: r2(mine.filter((t) => t.status === 'registered').reduce((s, t) => s + t.share, 0)),
           transfers: mine.map((t) => ({ id: t.id, share: t.share, to: (person(t.toPersonId) || {}).name, status: t.status, at: t.at })),
+          mortgages: state.bank.charges.filter((c) => c.dag === h.dag && c.borrowerNid === me.nid).map(chargeView),
         };
       });
   });
@@ -465,9 +677,7 @@
     }
     lock.on = !!body.on;
     lock.since = lock.on ? nowIso() : null;
-    if (!state.subscriptions.some((s) => s.dag === params.no && s.personId === user.personId)) {
-      state.subscriptions.push({ dag: params.no, personId: user.personId });
-    }
+    if (!state.subscriptions.some((s) => s.dag === params.no && s.personId === user.personId)) state.subscriptions.push({ dag: params.no, personId: user.personId });
     trace.push(step('Lock & alert service', lock.on ? 'SET lock' : 'CLEAR lock', { dag: params.no }));
     audit(user.id, lock.on ? 'lock.on' : 'lock.off', { dag: params.no });
     return { dag: params.no, locked: lock.on };
@@ -492,13 +702,24 @@
     if (a.response) throw fail(409, 'You already answered this alert.');
     const answer = body.answer === 'me' ? 'me' : body.answer === 'not_me' ? 'not_me' : null;
     if (!answer) throw fail(400, 'Answer must be "me" or "not_me".');
-    const req = getReq(a.requestId);
     a.response = answer;
     a.read = true;
     a.respondedAt = nowIso();
+    trace.push(step('Lock & alert service', 'owner answered', { alert: a.id, kind: a.kind, answer }));
+
+    if (a.kind === 'mortgage') {
+      const ch = state.bank.charges.find((c) => c.id === a.chargeId);
+      if (!ch) throw fail(404, 'Charge not found.');
+      ch.status = answer === 'me' ? 'live' : 'refused';
+      ch.decidedAt = a.respondedAt;
+      trace.push(step('CIB registry (mock)', answer === 'me' ? 'ACTIVATE charge' : 'REFUSE charge', { id: ch.id, status: ch.status }));
+      audit(user.id, answer === 'me' ? 'lock.mortgage_confirmed' : 'lock.mortgage_denied', { charge: ch.id });
+      return { alert: a, charge: chargeView(ch) };
+    }
+
+    const req = getReq(a.requestId);
     req.ownerResponse = answer;
     req.ownerRespondedAt = a.respondedAt;
-    trace.push(step('Lock & alert service', 'owner answered', { request: req.id, answer }));
     audit(user.id, answer === 'me' ? 'lock.owner_confirmed' : 'lock.owner_denied', { request: req.id });
     trace.push(step('Gate', 're-run checks with the answer', { request: req.id }));
     runChecks(req, trace);
@@ -507,10 +728,7 @@
 
   // verify (public: banks, buyers and AC Land can check without a login)
   route('GET', '/api/verify/clearances', () =>
-    state.clearances
-      .slice()
-      .reverse()
-      .map((c) => ({ id: c.id, dag: c.dag, share: c.share, sellerName: c.sellerName, buyerName: c.payload.buyer.name, verdict: c.payload.verdict, status: c.status, issuedAt: c.issuedAt }))
+    state.clearances.slice().reverse().map((c) => ({ id: c.id, dag: c.dag, share: c.share, sellerName: c.sellerName, buyerName: c.payload.buyer.name, verdict: c.payload.verdict, status: c.status, issuedAt: c.issuedAt }))
   );
 
   route('GET', '/api/verify/:id', ({ params, trace }) => {
