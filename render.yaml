@@ -1,0 +1,34 @@
+# Render Blueprint for the Dag API server.
+# Render dashboard > New > Blueprint > pick this repo > Apply.
+# (Or New > Web Service by hand with the same settings; see DEPLOY.md.)
+#
+# The server answers the API at /api/... and also serves the front end, so
+# this one URL is already a complete demo. The Vercel front end calls it once
+# js/config.js holds this service's URL.
+#
+# Free plan: the service sleeps after 15 minutes idle. The front end shows a
+# wake screen with a seconds counter and falls back to the in-browser backend
+# if the server does not answer within 80 seconds.
+services:
+  - type: web
+    name: dag-landtech-api
+    runtime: node
+    plan: free
+    region: singapore
+    buildCommand: npm install --no-audit --no-fund
+    startCommand: node server/http.js
+    healthCheckPath: /api/health
+    autoDeployTrigger: commit
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      # Workspaces live here. /tmp is wiped when the free service restarts,
+      # which simply gives every judge fresh demo records.
+      - key: DAG_DATA_DIR
+        value: /tmp/dag-data
+      # Secret signing seeds. Render generates them once and keeps them, so
+      # clearances signed before a restart still verify after it.
+      - key: DAG_GATE_SEED
+        generateValue: true
+      - key: DAG_ORACLE_SEED
+        generateValue: true

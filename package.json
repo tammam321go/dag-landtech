@@ -1,12 +1,17 @@
 {
   "name": "dag-land-clearance",
-  "version": "1.1.0",
+  "version": "2.0.0",
   "description": "Dag: a clearance gate in front of land registration in Bangladesh. LandTech 2026, team Silicon Knights.",
   "private": true,
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "test": "node --test tests/gate.test.js",
+    "start": "node server/http.js",
     "serve": "node server/http.js",
-    "start": "python3 -m http.server 5173"
+    "static": "python3 -m http.server 5173",
+    "smoke": "node scripts/smoke.mjs"
   },
   "license": "MIT"
 }

@@ -1,0 +1,9 @@
+# The Vercel site is the static front end only. The API runs on Render.
+server/
+tests/
+scripts/
+.github/
+.data/
+node_modules/
+render.yaml
+Dockerfile
