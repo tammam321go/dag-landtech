@@ -63,7 +63,7 @@
     // C1 Seller in record: the NID at the counter must belong to a holder,
     // and the name written on the deed should match the NID record.
     if (!seller) {
-      add('C1', 'block', `NID ${req.sellerNid} returned no person from the NID service.`, `এনআইডি ${req.sellerNid} দিয়ে এনআইডি সার্ভিসে কোনো ব্যক্তি পাওয়া যায়নি।`, [
+      add('C1', 'block', `NID ${req.sellerNid} returned no person from the NID service.`, `এনআইডি ${f.digits(req.sellerNid, 'bn')} দিয়ে এনআইডি সার্ভিসে কোনো ব্যক্তি পাওয়া যায়নি।`, [
         row('NID presented', 'উপস্থাপিত এনআইডি', req.sellerNid),
         row('Recorded holders', 'রেকর্ডভুক্ত মালিক', recorded, recordedBn),
       ]);
